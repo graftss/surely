@@ -7,29 +7,19 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .add_systems(Startup, spawn_grid)
         .run();
-}
-
-const X_EXTENT: f32 = 600.;
-const GRID_SIZE: u8 = 3;
-
-fn spawn_grid(mut commands: Commands) {
-    for x in 0..GRID_SIZE {
-        for y in 0..GRID_SIZE {}
-    }
 }
 
 /// The marker component for the parent of all grid tiles.
 #[derive(Component)]
 struct GridRoot;
 
-fn setup(
+fn spawn_grid(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
-
     const TILE_WIDTH: f32 = 100.0;
     const TILE_HEIGHT: f32 = 100.0;
     const TILE_PADDING_X: f32 = 5.0;
@@ -68,4 +58,8 @@ fn setup(
             x += TILE_WIDTH + TILE_PADDING_X;
         }
     });
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
 }
