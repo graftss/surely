@@ -51,9 +51,9 @@ fn setup(
 
     commands.spawn(grid_root).with_children(|parent| {
         let mut x = 0.0;
-        let mut y = 0.0;
 
         for _ in 0..grid_width {
+            let mut y = 0.0;
             for _ in 0..grid_height {
                 let rect_mesh = Mesh2dHandle(meshes.add(Rectangle::new(TILE_WIDTH, TILE_HEIGHT)));
                 parent.spawn(MaterialMesh2dBundle {
