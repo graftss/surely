@@ -1,8 +1,7 @@
-use _move::GridPos;
+use _move::{GridPos, MovesPlugin};
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    window::PrimaryWindow,
 };
 use input::InputPlugin;
 
@@ -19,7 +18,7 @@ struct GridRoot;
 /// The components are the x- and y- coordinates of the tile in the grid,
 /// where the tile at (0, 0) is at the bottom left.
 #[derive(Component, Debug)]
-struct GridTile(GridPos);
+struct GridTile(pub GridPos);
 
 #[derive(Component)]
 struct MainCamera;
@@ -27,7 +26,7 @@ struct MainCamera;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(InputPlugin)
+        .add_plugins((InputPlugin, MovesPlugin))
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_grid)
         .run();

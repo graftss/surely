@@ -1,6 +1,9 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::{GridTile, MainCamera};
+use crate::{
+    GridTile, MainCamera,
+    _move::{InputMoves, Move},
+};
 
 trait Collision {
     fn meets_point(&self, self_pos: Vec2, point: Vec2) -> bool;
@@ -42,16 +45,28 @@ struct FlagTimer {
 }
 
 impl FlagTimer {
-    pub fn on(&mut self, time_on: f32) {
+    /// Turns the flag on for `time_on` seconds.
+    /// Returns the previous value of `on`.
+    pub fn on(&mut self, time_on: f32) -> bool {
+        let last_on = self.on;
+
         self.on = true;
         self.time_on += time_on;
         self.ticks_on += 1;
+
+        last_on
     }
 
-    pub fn off(&mut self) {
+    /// Turns the flag off.
+    /// Returns the previous value of `on`
+    pub fn off(&mut self) -> bool {
+        let last_on = self.on;
+
         self.on = false;
         self.time_on = 0.0;
         self.ticks_on = 0;
+
+        last_on
     }
 }
 
@@ -62,9 +77,10 @@ struct MouseInteractState {
 }
 
 impl MouseInteractState {
-    pub fn end_interaction(&mut self) {
-        self.hovered.off();
-        self.held.off();
+    /// Turns off both the hover and held flags.
+    /// Returns both previous flag values: hovered first, held second.
+    pub fn end_interaction(&mut self) -> (bool, bool) {
+        (self.hovered.off(), self.held.off())
     }
 }
 
@@ -102,31 +118,48 @@ fn update_grid_tile_mouse_states(
     time: Res<Time>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     cursor_world_pos: Res<CursorWorldPos>,
+    mut input_moves: ResMut<InputMoves>,
     mut color_materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if let Some(cursor_pos) = cursor_world_pos.0 {
-        for (_, collision, transform, mat_handle, mut interact_state) in query.iter_mut() {
+        for (grid_tile, collision, transform, mat_handle, mut interact_state) in query.iter_mut() {
             let tile_pos = transform.translation().truncate();
+            let grid_pos = grid_tile.0;
 
             if collision.meets_point(tile_pos, cursor_pos) {
-                // mouse is over the grid tile at `tile_pos`
-                interact_state.mouse.hovered.on(time.delta_seconds());
+                // mouse is hovering the grid tile
+                let last_hovered = interact_state.mouse.hovered.on(time.delta_seconds());
 
                 if mouse_input.pressed(MouseButton::Left) {
+                    // mouse is down over the grid tile
                     interact_state.mouse.held.on(time.delta_seconds());
+
+                    if mouse_input.just_pressed(MouseButton::Left) {
+                        // mouse was just pressed, so it's a `Push`
+                        input_moves.0.push(Move::Push(grid_pos));
+                    } else if !last_hovered {
+                        // mouse was already pressed but the tile just hovered, so it's a `Drag`
+                        input_moves.0.push(Move::Drag(grid_pos));
+                    }
 
                     color_materials
                         .get_mut(mat_handle)
                         .map(|color_material| color_material.color = Color::RED);
                 } else {
-                    interact_state.mouse.held.off();
+                    // mouse is hovering the grid tile, but not down
+                    let last_held = interact_state.mouse.held.off();
+
+                    if last_held {
+                        // mouse stopped holding the tile, so it's a `Release`
+                        input_moves.0.push(Move::Release);
+                    }
 
                     color_materials
                         .get_mut(mat_handle)
                         .map(|color_material| color_material.color = Color::MIDNIGHT_BLUE);
                 }
             } else {
-                // mouse is not over the grid tile at `tile_pos`
+                // mouse is not hovering the grid tile
                 interact_state.mouse.end_interaction();
 
                 color_materials
