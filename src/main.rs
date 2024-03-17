@@ -106,29 +106,42 @@ fn update_grid_tile_mouse_states(
         &GridTile,
         &RectCollision,
         &GlobalTransform,
+        &Handle<ColorMaterial>,
         &mut InteractState,
     )>,
     time: Res<Time>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     cursor_world_pos: Res<CursorWorldPos>,
+    mut color_materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if let Some(cursor_pos) = cursor_world_pos.0 {
-        for (grid_tile, collision, transform, mut interact_state) in query.iter_mut() {
+        for (_, collision, transform, mat_handle, mut interact_state) in query.iter_mut() {
             let tile_pos = transform.translation().truncate();
+
             if collision.meets_point(tile_pos, cursor_pos) {
                 // mouse is over the grid tile at `tile_pos`
                 interact_state.mouse.hovered.on(time.delta_seconds());
 
                 if mouse_input.pressed(MouseButton::Left) {
-                    println!("held tile: {:?} {:?}", grid_tile, interact_state);
                     interact_state.mouse.held.on(time.delta_seconds());
+
+                    color_materials
+                        .get_mut(mat_handle)
+                        .map(|color_material| color_material.color = Color::RED);
                 } else {
-                    println!("hovered tile: {:?} {:?}", grid_tile, interact_state);
                     interact_state.mouse.held.off();
+
+                    color_materials
+                        .get_mut(mat_handle)
+                        .map(|color_material| color_material.color = Color::MIDNIGHT_BLUE);
                 }
             } else {
                 // mouse is not over the grid tile at `tile_pos`
                 interact_state.mouse.end_interaction();
+
+                color_materials
+                    .get_mut(mat_handle)
+                    .map(|color_material| color_material.color = Color::hsl(200.0, 0.5, 0.4));
             }
         }
     }
@@ -157,8 +170,16 @@ fn spawn_grid(
     const TILE_PADDING_X: f32 = 5.0;
     const TILE_PADDING_Y: f32 = 5.0;
 
-    let grid_width = 3;
-    let grid_height = 3;
+    const TILE_COLLISION_WIDTH: f32 = TILE_WIDTH + TILE_PADDING_X;
+    const TILE_COLLISION_HEIGHT: f32 = TILE_HEIGHT + TILE_PADDING_Y;
+    const TILE_DELTA_X: f32 = TILE_WIDTH + TILE_PADDING_X;
+    const TILE_DELTA_Y: f32 = TILE_HEIGHT + TILE_PADDING_Y;
+
+    const GRID_WIDTH: u32 = 3;
+    const GRID_HEIGHT: u32 = 3;
+
+    let min_pos_x = -1.0 * (GRID_WIDTH - 1) as f32 * 0.5 * TILE_DELTA_X;
+    let min_pos_y = -1.0 * (GRID_HEIGHT - 1) as f32 * 0.5 * TILE_DELTA_Y;
 
     let tile_color = Color::hsl(200.0, 0.5, 0.4);
 
@@ -172,11 +193,12 @@ fn spawn_grid(
     );
 
     commands.spawn(grid_root).with_children(|parent| {
-        let mut pos_x = 0.0;
+        let mut pos_x = min_pos_x;
 
-        for tile_x in 0..grid_width {
-            let mut pos_y = 0.0;
-            for tile_y in 0..grid_height {
+        for tile_x in 0..GRID_WIDTH {
+            let mut pos_y = min_pos_y;
+
+            for tile_y in 0..GRID_HEIGHT {
                 let rect_mesh = Mesh2dHandle(meshes.add(Rectangle::new(TILE_WIDTH, TILE_HEIGHT)));
 
                 let mesh_bundle = MaterialMesh2dBundle {
@@ -187,8 +209,8 @@ fn spawn_grid(
                 };
 
                 let rect_collision = RectCollision {
-                    width: TILE_WIDTH,
-                    height: TILE_HEIGHT,
+                    width: TILE_COLLISION_WIDTH,
+                    height: TILE_COLLISION_HEIGHT,
                 };
 
                 parent.spawn((
